@@ -1,0 +1,46 @@
+{
+  "expo": {
+    "name": "Toddler Meals",
+    "slug": "jian",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "backgroundColor": "#f8fafc"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSCameraUsageDescription": "Toddler Meals uses the camera to scan grocery barcodes and suggest related meal ideas."
+      }
+    },
+    "android": {
+      "package": "com.toddlermeals.app",
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO"
+      ]
+    },
+    "plugins": [
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow Toddler Meals to scan grocery barcodes and suggest related meal ideas."
+        }
+      ]
+    ],
+    "web": {
+      "bundler": "metro",
+      "output": "single"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "4f5097b8-ccb2-45fa-a873-a58c2dcfc55e"
+      }
+    },
+    "owner": "jiannnnns-team"
+  }
+}
