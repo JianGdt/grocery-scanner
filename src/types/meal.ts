@@ -1,4 +1,5 @@
 export type MealCategory = "vegetable" | "meat" | "fish" | "healthy";
+export type GroceryStoreId = "puregold" | "sm";
 
 export type Meal = {
   id: string;
@@ -9,16 +10,19 @@ export type Meal = {
   ingredients: string[];
   nutrition: string;
   servingTip: string;
-  imageUrl: string;
+  imageUrl?: string;
   allergyNote?: string;
 };
 
 export type FoodProduct = {
   id: string;
   name: string;
+  barcode?: string;
   brand?: string;
   imageUrl?: string;
   estimatedPrice?: number;
+  priceStoreId?: GroceryStoreId;
+  priceSource?: "cloud" | "saved" | "manual";
   nutriScore?: string;
   ingredientsText?: string;
   caloriesPer100g?: number;

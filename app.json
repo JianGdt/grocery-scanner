@@ -14,7 +14,7 @@
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
-        "NSCameraUsageDescription": "Toddler Meals uses the camera to scan grocery barcodes and suggest related meal ideas."
+        "NSCameraUsageDescription": "Toddler Meals uses the camera to scan grocery barcodes and save grocery list items."
       }
     },
     "android": {
@@ -28,7 +28,7 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "Allow Toddler Meals to scan grocery barcodes and suggest related meal ideas."
+          "cameraPermission": "Allow Toddler Meals to scan grocery barcodes and save grocery list items."
         }
       ]
     ],

@@ -8,14 +8,12 @@ type NavItem = {
   icon: keyof typeof Ionicons.glyphMap;
 };
 
-export type AppTab = "home" | "cart" | "scanner" | "saves" | "profile";
+export type AppTab = "home" | "cart" | "scanner";
 
 const navItems: NavItem[] = [
   { id: "home", label: "Home", icon: "home-outline" },
   { id: "cart", label: "Cart", icon: "cart-outline" },
-  { id: "scanner", label: "Scan", icon: "scan-outline" },
-  { id: "saves", label: "Saved", icon: "heart-outline" },
-  { id: "profile", label: "Profile", icon: "person-outline" }
+  { id: "scanner", label: "Scan", icon: "scan-outline" }
 ];
 
 type Props = {
@@ -26,7 +24,7 @@ type Props = {
 export function BottomNav({ selectedTab, onSelect }: Props) {
   return (
     <View className="absolute bottom-0 left-0 right-0 px-7 pb-5">
-      <View className="h-20 flex-row items-center justify-between rounded-full bg-white px-5 shadow-lg shadow-black/10">
+      <View className="h-20 flex-row items-center justify-around rounded-full bg-white px-5 shadow-lg shadow-black/10">
         {navItems.map((item) => (
           <BottomNavItem isActive={selectedTab === item.id} key={item.label} item={item} onPress={() => onSelect(item.id)} />
         ))}

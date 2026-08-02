@@ -1,6 +1,6 @@
 # Toddler Meal Suggestions
 
-Expo + TypeScript app for meal suggestions for toddlers ages 3 and above. It uses NativeWind for styling, Zustand for local state, and Spoonacular for recipes and packaged grocery products.
+Expo + TypeScript grocery scanner for Puregold and SM shopping trips. It uses NativeWind, Zustand, local persistence, and Open Food Facts for barcode product details. Prices are saved locally per store after you enter them.
 
 ## Run
 
@@ -9,14 +9,30 @@ npm install
 npm run start
 ```
 
-## Spoonacular
+## APIs
+
+No private API keys are required for grocery scanning. To enable AI food suggestions, add a Gemini API key:
 
 ```bash
-EXPO_PUBLIC_SPOONACULAR_API=...
+EXPO_PUBLIC_GEMINI_API_KEY=...
+EXPO_PUBLIC_GEMINI_MODEL=gemini-2.0-flash
 ```
 
-The recipe feed uses Spoonacular recipe search, and packaged food lookup uses Spoonacular grocery product endpoints. Create a free key at https://spoonacular.com/food-api/console and set `EXPO_PUBLIC_SPOONACULAR_API` in `.env`.
+To sync saved Puregold and SM prices through Firebase Firestore, add Firebase web app config values:
+
+```bash
+EXPO_PUBLIC_FIREBASE_API_KEY=...
+EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN=...
+EXPO_PUBLIC_FIREBASE_PROJECT_ID=...
+EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET=...
+EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=...
+EXPO_PUBLIC_FIREBASE_APP_ID=...
+```
 
 ## Scanner
 
-The scanner uses `expo-camera` to read grocery barcodes, looks up the scanned item in Spoonacular, adds it to the grocery list, then suggests related toddler meal ideas from the Spoonacular recipe list.
+The scanner uses `expo-camera` to read grocery barcodes, looks up the scanned item in Open Food Facts, adds the item to the grocery list, and lets you enter the Puregold or SM shelf price. Prices are remembered locally per store and barcode for future grocery trips.
+
+The `Ask AI` button sends the scanned grocery names, brands, prices, and barcode details to Gemini Flash and returns concise food ideas based on those items.
+
+If Firebase is configured, entered prices are also saved to the `grocery_prices` Firestore collection and reused by other app installs that scan the same barcode/store.

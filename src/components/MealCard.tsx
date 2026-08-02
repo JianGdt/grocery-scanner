@@ -45,7 +45,11 @@ export function MealCard({ meal, onPress, variant = "tile" }: Props) {
           </View>
 
           <View className="h-24 w-24 items-center justify-center rounded-full bg-white/55">
-            <Image accessibilityLabel={meal.title} className="h-20 w-20 rounded-full" resizeMode="cover" source={{ uri: meal.imageUrl }} />
+            {meal.imageUrl ? (
+              <Image accessibilityLabel={meal.title} className="h-20 w-20 rounded-full" resizeMode="cover" source={{ uri: meal.imageUrl }} />
+            ) : (
+              <Ionicons name={theme.icon} size={40} color="#160825" />
+            )}
           </View>
 
           <View className="absolute right-3 top-3 h-7 w-7 items-center justify-center rounded-md bg-white/35">
@@ -63,7 +67,13 @@ export function MealCard({ meal, onPress, variant = "tile" }: Props) {
       className="w-72 overflow-hidden rounded-[28px] bg-[#fffaf0]"
     >
       <Pressable accessibilityRole="button" className="h-40" onPress={() => onPress?.(meal)}>
-        <Image accessibilityLabel={meal.title} className="h-full w-full" resizeMode="cover" source={{ uri: meal.imageUrl }} />
+        {meal.imageUrl ? (
+          <Image accessibilityLabel={meal.title} className="h-full w-full" resizeMode="cover" source={{ uri: meal.imageUrl }} />
+        ) : (
+          <View className="h-full w-full items-center justify-center bg-[#ddfee2]">
+            <Ionicons name={theme.icon} size={56} color="#28624a" />
+          </View>
+        )}
         <View className="absolute left-3 top-3 flex-row items-center rounded-full bg-[#fffaf0]/95 px-3 py-1.5">
           <Ionicons name="time-outline" size={14} color="#28624a" />
           <Text className="ml-1 text-xs font-black text-[#28624a]">{meal.prepMinutes} MIN</Text>

@@ -4,7 +4,7 @@ import Animated, { FadeInUp, Layout } from "react-native-reanimated";
 import type { FoodProduct } from "@/types/meal";
 
 function formatPrice(value?: number) {
-  return `PHP ${(value ?? 0).toFixed(2)}`;
+  return value === undefined ? "Add price" : `PHP ${value.toFixed(2)}`;
 }
 
 export function ProductCard({ product }: { product: FoodProduct }) {
@@ -53,7 +53,7 @@ export function ProductCard({ product }: { product: FoodProduct }) {
         <View className="mt-5 flex-row items-center justify-between">
           <Text className="text-2xl font-black text-[#160825]">{formatPrice(product.estimatedPrice)}</Text>
           <Pressable accessibilityRole="button" className="h-12 min-w-28 items-center justify-center rounded-2xl bg-white px-5">
-            <Text className="text-sm font-black text-[#160825]">Buy Now</Text>
+            <Text className="text-sm font-black text-[#160825]">Details</Text>
           </Pressable>
         </View>
       </View>

@@ -21,6 +21,7 @@
     "expo-file-system": "~18.0.12",
     "expo-font": "~13.0.4",
     "expo-status-bar": "~2.0.0",
+    "firebase": "^12.17.0",
     "metro": "0.81.5",
     "metro-cache": "0.81.5",
     "metro-config": "0.81.5",

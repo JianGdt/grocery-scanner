@@ -1,15 +1,21 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { getSpoonacularProductByBarcode, searchSpoonacularMeals, searchSpoonacularProducts } from "@/lib/spoonacular";
-import type { FoodProduct, Meal, MealCategory } from "@/types/meal";
+import { getCloudGroceryPrice, saveCloudGroceryPrice } from "@/lib/groceryPriceDb";
+import { getProductByBarcode } from "@/lib/products";
+import type { FoodProduct, GroceryStoreId, Meal, MealCategory } from "@/types/meal";
+
+type StorePriceBook = Record<string, number>;
 
 type MealState = {
   meals: Meal[];
   products: FoodProduct[];
   scannedProduct?: FoodProduct;
   scannedProducts: FoodProduct[];
+  savedProductIds: string[];
   selectedCategory: MealCategory | "all";
+  selectedGroceryStore: GroceryStoreId;
+  storePriceBook: StorePriceBook;
   isLoading: boolean;
   isSearchingProducts: boolean;
   error?: string;
@@ -21,6 +27,9 @@ type MealState = {
   scanProductByBarcode: (barcode: string) => Promise<FoodProduct | undefined>;
   searchProducts: (query: string) => Promise<void>;
   setCategory: (category: MealCategory | "all") => void;
+  setGroceryStore: (storeId: GroceryStoreId) => void;
+  toggleSavedItem: (id: string) => void;
+  updateScannedItemPrice: (id: string, price: string) => void;
 };
 
 function mergeProducts(products: FoodProduct[], product: FoodProduct) {
@@ -31,27 +40,40 @@ function mergeProducts(products: FoodProduct[], product: FoodProduct) {
   return [product, ...products];
 }
 
-function estimatePrice(name: string) {
-  const base = Array.from(name.toLowerCase()).reduce((total, character) => total + character.charCodeAt(0), 0);
+function priceBookKey(storeId: GroceryStoreId, product: Pick<FoodProduct, "barcode" | "name">) {
+  const productKey = product.barcode ?? product.name.toLowerCase().replace(/[^a-z0-9]+/g, "-");
 
-  return Math.round((45 + (base % 180)) * 100) / 100;
+  return `${storeId}:${productKey}`;
 }
 
-function withEstimatedPrice(product: FoodProduct) {
+function withStorePrice(product: FoodProduct, storeId: GroceryStoreId, priceBook: StorePriceBook, cloudPrice?: number): FoodProduct {
+  const savedPrice = cloudPrice ?? priceBook[priceBookKey(storeId, product)];
+
   return {
     ...product,
-    estimatedPrice: product.estimatedPrice ?? estimatePrice(product.name)
+    estimatedPrice: savedPrice,
+    priceSource: savedPrice === undefined ? undefined : cloudPrice === undefined ? "saved" : "cloud",
+    priceStoreId: storeId
   };
+}
+
+function parsePrice(price: string) {
+  const value = Number(price.replace(/[^\d.]/g, ""));
+
+  return Number.isFinite(value) && value >= 0 ? Math.round(value * 100) / 100 : undefined;
 }
 
 export const useMealStore = create<MealState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       meals: [],
       products: [],
       scannedProduct: undefined,
       scannedProducts: [],
+      savedProductIds: [],
       selectedCategory: "all",
+      selectedGroceryStore: "puregold",
+      storePriceBook: {},
       isLoading: false,
       isSearchingProducts: false,
       error: undefined,
@@ -63,17 +85,24 @@ export const useMealStore = create<MealState>()(
           return;
         }
 
-        const product: FoodProduct = withEstimatedPrice({
-          id: `manual-${trimmedName.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`,
-          name: trimmedName
-        });
+        set((state) => {
+          const slug = trimmedName.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+          const product = withStorePrice(
+            {
+              id: `manual-${state.selectedGroceryStore}-${slug}`,
+              name: trimmedName
+            },
+            state.selectedGroceryStore,
+            state.storePriceBook
+          );
 
-        set((state) => ({
-          products: mergeProducts(state.products, product),
-          scannedProduct: product,
-          scannedProducts: mergeProducts(state.scannedProducts, product),
-          productError: undefined
-        }));
+          return {
+            products: mergeProducts(state.products, product),
+            scannedProduct: product,
+            scannedProducts: mergeProducts(state.scannedProducts, product),
+            productError: undefined
+          };
+        });
       },
       clearScannedItems: () =>
         set((state) => {
@@ -97,6 +126,18 @@ export const useMealStore = create<MealState>()(
           };
         }),
       setCategory: (category) => set({ selectedCategory: category }),
+      setGroceryStore: (storeId) =>
+        set((state) => ({
+          selectedGroceryStore: storeId,
+          scannedProducts: state.scannedProducts.map((product) => withStorePrice(product, storeId, state.storePriceBook)),
+          scannedProduct: state.scannedProduct ? withStorePrice(state.scannedProduct, storeId, state.storePriceBook) : undefined
+        })),
+      toggleSavedItem: (id) =>
+        set((state) => ({
+          savedProductIds: state.savedProductIds.includes(id)
+            ? state.savedProductIds.filter((savedId) => savedId !== id)
+            : [id, ...state.savedProductIds]
+        })),
       searchProducts: async (query) => {
         const trimmedQuery = query.trim();
 
@@ -105,83 +146,127 @@ export const useMealStore = create<MealState>()(
           return;
         }
 
-        set({ isSearchingProducts: true, productError: undefined, scannedProduct: undefined });
+        set((state) => {
+          const products = state.scannedProducts.filter((product) => {
+            const text = `${product.name} ${product.brand ?? ""} ${product.barcode ?? ""}`.toLowerCase();
 
-        try {
-          const products = await searchSpoonacularProducts(trimmedQuery);
+            return text.includes(trimmedQuery.toLowerCase());
+          });
 
-          set({
+          return {
             products,
             scannedProduct: products[0],
             isSearchingProducts: false,
-            productError: products.length ? undefined : "No packaged foods found for that search."
-          });
-        } catch {
-          set({
-            products: [],
-            isSearchingProducts: false,
-            productError: "Spoonacular could not be reached. Check your API key and try again."
-          });
-        }
+            productError: products.length ? undefined : "No saved grocery items found for that search."
+          };
+        });
       },
       scanProductByBarcode: async (barcode) => {
         set({ isSearchingProducts: true, productError: undefined });
 
         try {
-          const product = await getSpoonacularProductByBarcode(barcode);
+          const product = await getProductByBarcode(barcode);
 
           if (!product) {
             set({
               isSearchingProducts: false,
-              productError: "That barcode was not found in Spoonacular."
+              productError: "No product details found for that barcode. You can type the item name manually."
             });
             return undefined;
           }
 
-          const pricedProduct = withEstimatedPrice(product);
+          let cloudPrice: number | undefined;
+
+          try {
+            cloudPrice = await getCloudGroceryPrice(get().selectedGroceryStore, product);
+          } catch {
+            cloudPrice = undefined;
+          }
+
+          const pricedProduct = withStorePrice(product, get().selectedGroceryStore, get().storePriceBook, cloudPrice);
 
           set((state) => ({
             products: mergeProducts(state.products, pricedProduct),
             scannedProduct: pricedProduct,
             scannedProducts: mergeProducts(state.scannedProducts, pricedProduct),
+            storePriceBook:
+              cloudPrice === undefined
+                ? state.storePriceBook
+                : {
+                    ...state.storePriceBook,
+                    [priceBookKey(state.selectedGroceryStore, product)]: cloudPrice
+                  },
             isSearchingProducts: false,
             productError: undefined
           }));
           return pricedProduct;
-        } catch {
+        } catch (error) {
           set({
             isSearchingProducts: false,
-            productError: "Spoonacular could not read that barcode. Check your API key and try again."
+            productError: error instanceof Error ? error.message : "Barcode lookup is temporarily unavailable. Type the item manually for now."
           });
           return undefined;
         }
       },
-      loadMeals: async () => {
-        set({ isLoading: true, error: undefined });
+      updateScannedItemPrice: (id, price) => {
+        const parsedPrice = parsePrice(price);
 
-        try {
-          const meals = await searchSpoonacularMeals();
+        set((state) => {
+          const product = state.scannedProducts.find((item) => item.id === id);
 
-          set({
-            meals,
-            isLoading: false,
-            error: meals.length ? undefined : "No Spoonacular recipes found."
-          });
-        } catch {
-          set({
-            meals: [],
-            isLoading: false,
-            error: "Spoonacular recipes could not be loaded. Check your API key and try again."
-          });
+          if (!product) {
+            return state;
+          }
+
+          const key = priceBookKey(state.selectedGroceryStore, product);
+          const storePriceBook = { ...state.storePriceBook };
+
+          if (parsedPrice === undefined) {
+            delete storePriceBook[key];
+          } else {
+            storePriceBook[key] = parsedPrice;
+          }
+
+          const updateProduct = (item: FoodProduct): FoodProduct =>
+            item.id === id
+              ? {
+                  ...item,
+                  estimatedPrice: parsedPrice,
+                  priceSource: parsedPrice === undefined ? undefined : "manual",
+                  priceStoreId: state.selectedGroceryStore
+                }
+              : item;
+
+          const scannedProducts = state.scannedProducts.map(updateProduct);
+          const products = state.products.map(updateProduct);
+
+          return {
+            products,
+            scannedProduct: state.scannedProduct?.id === id ? updateProduct(state.scannedProduct) : state.scannedProduct,
+            scannedProducts,
+            storePriceBook
+          };
+        });
+
+        const product = get().scannedProducts.find((item) => item.id === id);
+
+        if (product && parsedPrice !== undefined) {
+          void saveCloudGroceryPrice(get().selectedGroceryStore, product, parsedPrice);
         }
+      },
+      loadMeals: async () => {
+        set({ meals: [], isLoading: false, error: undefined });
       }
     }),
     {
-      name: "toddler-meal-store-v2",
+      name: "toddler-meal-store-v3",
       storage: createJSONStorage(() => AsyncStorage),
       partialize: (state) => ({
         selectedCategory: state.selectedCategory,
-        scannedProducts: state.scannedProducts
+        selectedGroceryStore: state.selectedGroceryStore,
+        savedProductIds: state.savedProductIds,
+        scannedProducts: state.scannedProducts,
+        storePriceBook: state.storePriceBook
       })
     }
   )
